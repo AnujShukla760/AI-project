@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Assistant</title>
+</head>
+<body>
+<h1>Virtual Assistant</h1>
+<button id="startButton">Start Voice Recognition</button>
+<p id="transcription"></p>
+<audio id="assistantAudio" controls style="display: none;"></audio>  <!-- Audio player -->
+
+<script>
+    let recognition;
+
+    // Initialize the Web Speech API
+    if ('webkitSpeechRecognition' in window) {
+        recognition = new webkitSpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = "en-US";
+
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById('transcription').textContent = transcript;
+
+            // Send the transcription to the backend to process and generate audio
+            fetch('/api/assistant/processSpeech', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(transcript)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Response from backend:', data);
+                // After processing speech, get the audio response from the backend
+                return fetch('/api/assistant/getAudioResponse');
+            })
+            .then(response => response.blob())  // Convert the response to a blob (audio data)
+            .then(blob => {
+                const audioUrl = URL.createObjectURL(blob);  // Create a URL for the audio blob
+                const audioElement = document.getElementById('assistantAudio');
+                audioElement.src = audioUrl;  // Set the audio element source to the audio URL
+                audioElement.style.display = 'block';  // Make the audio player visible
+                audioElement.play();  // Play the audio
+            })
+            .catch(error => console.error('Error:', error));
+        };
+
+        recognition.onerror = function(event) {
+            console.error('Error occurred in speech recognition: ', event.error);
+        };
+    } else {
+        alert('Your browser does not support speech recognition.');
+    }
+
+    // Start speech recognition when the button is clicked
+    document.getElementById('startButton').addEventListener('click', function() {
+        recognition.start();
+    });
+</script>
+</body>
+</html>
